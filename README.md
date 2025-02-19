@@ -1,27 +1,41 @@
+import pandas as pd
+from sklearn.neighbors import NearestNeighbors
 
-# AI Recommendation System – Personalized Item Suggestions using Machine Learning
+# Load dataset
+try:
+    ratings = pd.read_csv('data/sample_ratings.csv')
+except FileNotFoundError:
+    # Sample dataset if no file is found
+    ratings = pd.DataFrame({
+        'user_id': [1, 1, 2, 2, 3, 3],
+        'item_id': [101, 102, 101, 103, 102, 104],
+        'rating': [5, 4, 4, 5, 5, 3]
+    })
 
-## Description
-The AI Recommendation System is a machine learning project that provides personalized item recommendations using Collaborative Filtering. It leverages K-Nearest Neighbors (KNN) to analyze user preferences and suggest relevant items based on similar users. This project is designed to demonstrate how recommendation engines work in real-world applications like e-commerce, streaming services, and online marketplaces.
+# Create user-item matrix
+user_item_matrix = ratings.pivot(index='user_id', columns='item_id', values='rating').fillna(0)
 
-## Features
-Collaborative Filtering Approach: Uses user-item interactions to generate recommendations.
-Machine Learning Algorithm: Implements scikit-learn’s Nearest Neighbors for similarity analysis.
-Customizable & Scalable: Easily adaptable to larger datasets and real-world applications.
-Dataset Support: Works with both preloaded sample data and external CSV datasets.
-Simple & Interactive: Accepts user input for real-time recommendations.
+# Train a Nearest Neighbors model
+model = NearestNeighbors(metric='cosine', algorithm='brute')
+model.fit(user_item_matrix)
 
-## How It Works
-Loads User-Item Data (either a CSV file or a default dataset).
-Creates a User-Item Matrix to map interactions between users and items.
-Trains a KNN Model to identify similar users based on past interactions.
-Suggests Items by recommending what similar users have liked.
+# Function to get recommendations
+def get_recommendations(user_id, n_recommendations=3):
+    if user_id not in user_item_matrix.index:
+        return f"User {user_id} not found in dataset."
 
-## Project Structure
- AI_Recommendation_System
- ┣ 📂 src         # Source Code
- ┣ 📂 data        # Sample Dataset
- ┣ 📂 models      # Trained Models (if needed)
- ┣ 📂 notebooks   # Jupyter Notebooks for analysis
- ┣ 📂 docs        # Documentation
- ┣ 📜 README.md   # Project Overview
+    user_vector = user_item_matrix.loc[user_id].values.reshape(1, -1)
+    distances, indices = model.kneighbors(user_vector, n_neighbors=n_recommendations + 1)
+    
+    recommended_users = user_item_matrix.index[indices.flatten()][1:]
+    
+    recommended_items = set()
+    for user in recommended_users:
+        recommended_items.update(ratings[ratings["user_id"] == user]["item_id"].tolist())
+
+    return f"Recommended items for User {user_id}: {list(recommended_items)}"
+
+# Example usage
+if __name__ == "__main__":
+    user_id = int(input("Enter User ID for recommendations: "))
+    print(get_recommendations(user_id))
